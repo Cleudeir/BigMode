@@ -30,6 +30,8 @@ public class MobSpawnHandler {
     private static final int DAYS_INTERVAL = 7;
     private static final List<LivingEntity> currentWaveMobs = new ArrayList<>();
     private static final int maxMobs = 40;
+    private static final int maxMobPack = 30;
+    private static final int maxMobDiff = maxMobs - maxMobPack;
 
     @SubscribeEvent
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
@@ -42,7 +44,7 @@ public class MobSpawnHandler {
             boolean isNightTime = timeOfDay >= 13000 && timeOfDay <= 23000;
 
             if (days % DAYS_INTERVAL == 0) {
-                if (isNightTime && currentWaveMobs.size() < maxMobs / 2) {
+                if (isNightTime && currentWaveMobs.size() < maxMobPack) {
                     spawnNextWave(serverWorld);
                 }
             } else {
@@ -100,28 +102,28 @@ public class MobSpawnHandler {
     }
 
     private static void spawnZombies(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobs * 3 / 8; i++) {
+        for (int i = 0; i < maxMobDiff * 2 / 4; i++) {
             Zombie zombie = new Zombie(EntityType.ZOMBIE, world);
             spawnAndTrack(world, zombie, player);
         }
     }
 
     private static void spawnSkeletons(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobs / 4; i++) {
+        for (int i = 0; i < maxMobDiff * 1 / 4; i++) {
             Skeleton skeleton = new Skeleton(EntityType.SKELETON, world);
             spawnAndTrack(world, skeleton, player);
         }
     }
 
     private static void spawnCreepers(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobs / 4; i++) {
+        for (int i = 0; i < maxMobDiff * 1 / 4; i++) {
             Creeper creeper = new Creeper(EntityType.CREEPER, world);
             spawnAndTrack(world, creeper, player);
         }
     }
 
     private static void spawnSpiders(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobs / 8; i++) {
+        for (int i = 0; i < maxMobDiff * 1 / 4; i++) {
             Spider spider = new Spider(EntityType.SPIDER, world);
             spawnAndTrack(world, spider, player);
         }
