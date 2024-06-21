@@ -3,6 +3,8 @@ package com.example.yourmodid;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -11,6 +13,7 @@ import net.minecraft.world.entity.monster.Skeleton;
 import net.minecraft.world.entity.monster.Spider;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent.PlayerRespawnEvent;
@@ -28,7 +31,7 @@ import java.util.function.Predicate;
 public class MobSpawnHandler {
     private static final int DAYS_INTERVAL = 7;
     private static final List<LivingEntity> currentWaveMobs = new ArrayList<>();
-  
+    private static final int maxMobsPerWave = 40;
 
     @SubscribeEvent
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
@@ -39,27 +42,32 @@ public class MobSpawnHandler {
             int days = (int) (time / dayDuration);
             int timeOfDay = (int) (time % dayDuration);
             boolean isNightTime = timeOfDay >= 13000 && timeOfDay <= 23000;
-           
-            if (days % DAYS_INTERVAL == 0 && currentWaveMobs.isEmpty()) {
-                if(isNightTime){
+
+            if (days % DAYS_INTERVAL == 0 && currentWaveMobs.size() < maxMobsPerWave / 2) {
+                if (isNightTime) {
                     Collection<ServerPlayer> players = serverWorld.getPlayers((Predicate<ServerPlayer>) p -> true);
                     for (ServerPlayer player : players) {
                         player.sendSystemMessage(Component.translatable("A new wave of mobs has spawned!"));
                     }
                     spawnNextWave(serverWorld);
-                }else {
+                } else {
                     currentWaveMobs.clear();
-                }             
+                }
             }
         }
     }
 
+    @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
+
         if (event.getEntity() instanceof Mob) {
             Mob mob = (Mob) event.getEntity();
+            System.out.println(mob.getName().getString() + " has died.");
+            System.err.println("currentWaveMobs >>>>>>>:" + currentWaveMobs.size());
+
             if (currentWaveMobs.contains(mob)) {
                 currentWaveMobs.remove(mob);
-                System.err.println(currentWaveMobs.size());
+                System.err.println("currentWaveMobs >>>>>>>:" + currentWaveMobs.size());
             }
         }
     }
@@ -71,7 +79,11 @@ public class MobSpawnHandler {
             Player player = (Player) entity;
             player.sendSystemMessage(
                     Component.translatable(">>>>>>>>RESPAWNED<<<<<<<<<<<! " + player.getDisplayName().getString()));
+            
+           
             targetMobsToPlayer(player);
+            // Apply Damage Resistance effect for 10 seconds (200 ticks)
+            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 200, 4, false, false));
         }
     }
 
@@ -80,62 +92,71 @@ public class MobSpawnHandler {
     }
 
     private static void spawnNextWave(ServerLevel world) {
-        currentWaveMobs.clear();    
+        currentWaveMobs.clear();
         for (Player player : world.players()) {
             spawnZombies(world, player);
             spawnSkeletons(world, player);
             spawnCreepers(world, player);
-            // spawnSpiders(world, player);
+            spawnSpiders(world, player);
         }
         notifyPlayersOfMobCounts(world);
     }
 
     private static void spawnZombies(ServerLevel world, Player player) {
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < maxMobsPerWave * 3 / 8; i++) {
             Zombie zombie = new Zombie(EntityType.ZOMBIE, world);
             spawnAndTrack(world, zombie, player);
         }
     }
 
     private static void spawnSkeletons(ServerLevel world, Player player) {
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < maxMobsPerWave / 4; i++) {
             Skeleton skeleton = new Skeleton(EntityType.SKELETON, world);
             spawnAndTrack(world, skeleton, player);
         }
     }
 
     private static void spawnCreepers(ServerLevel world, Player player) {
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < maxMobsPerWave / 4; i++) {
             Creeper creeper = new Creeper(EntityType.CREEPER, world);
             spawnAndTrack(world, creeper, player);
         }
     }
 
     private static void spawnSpiders(ServerLevel world, Player player) {
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < maxMobsPerWave / 8; i++) {
             Spider spider = new Spider(EntityType.SPIDER, world);
             spawnAndTrack(world, spider, player);
         }
     }
 
     private static void spawnAndTrack(ServerLevel world, LivingEntity entity, Player target) {
-        currentWaveMobs.add(entity);
+        if (currentWaveMobs.size() == maxMobsPerWave) {
+            return;
+        }
         // Calculate spawn position near the player
-        double x = target.getX() + world.random.nextInt(20) - 10;
-        double y = target.getY();
-        double z = target.getZ() + world.random.nextInt(20) - 10;
+        double x = target.getX() + world.random.nextInt(30) - 40;
+        double z = target.getZ() + world.random.nextInt(30) - 40;
+
+        // Get the highest block at the (x, z) location to ensure the mob spawns on the
+        // ground
+        double y = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) x, (int) z);
+
+        // Set the entity's position
         entity.setPos(x, y, z);
 
         // Set the entity's target to the player
         Mob mob = (Mob) entity;
         mob.setTarget(target);
         mob.setHealth(2);
+
         // Spawn the entity and track it
         world.addFreshEntity(entity);
+        currentWaveMobs.add(entity);
     }
 
     private static void notifyPlayersOfMobCounts(ServerLevel world) {
-        StringBuilder message = new StringBuilder("Current Wave Mob Counts:\n" + currentWaveMobs.size());        
+        StringBuilder message = new StringBuilder("Current Wave Mob Counts:\n" + currentWaveMobs.size());
         for (Player player : world.players()) {
             player.sendSystemMessage(Component.literal(message.toString()));
         }
