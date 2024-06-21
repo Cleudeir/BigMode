@@ -22,9 +22,7 @@ import net.minecraftforge.fml.common.Mod;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Predicate;
 
 @Mod.EventBusSubscriber(modid = YourMod.MODID)
@@ -45,9 +43,12 @@ public class MobSpawnHandler {
 
             if (days % DAYS_INTERVAL == 0 && currentWaveMobs.size() < maxMobsPerWave / 2) {
                 if (isNightTime) {
-                    Collection<ServerPlayer> players = serverWorld.getPlayers((Predicate<ServerPlayer>) p -> true);
-                    for (ServerPlayer player : players) {
-                        player.sendSystemMessage(Component.translatable("A new wave of mobs has spawned!"));
+                    if (currentWaveMobs.isEmpty()) {
+                        Collection<ServerPlayer> players = serverWorld.getPlayers((Predicate<ServerPlayer>) p -> true);
+                        for (ServerPlayer player : players) {
+                            player.sendSystemMessage(
+                                    Component.translatable("The night starts, the mobs are incoming!"));
+                        }
                     }
                     spawnNextWave(serverWorld);
                 } else {
@@ -77,13 +78,11 @@ public class MobSpawnHandler {
         LivingEntity entity = event.getEntity();
         if (entity instanceof Player) {
             Player player = (Player) entity;
-            player.sendSystemMessage(
-                    Component.translatable(">>>>>>>>RESPAWNED<<<<<<<<<<<! " + player.getDisplayName().getString()));
-            
-           
             targetMobsToPlayer(player);
-            // Apply Damage Resistance effect for 10 seconds (200 ticks)
-            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 200, 4, false, false));
+            // Apply Damage Resistance effect for 5 seconds (100 ticks)
+            player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false));
+            player.sendSystemMessage(
+                    Component.translatable("You are invulnerable to damage for 5 seconds!"));
         }
     }
 
@@ -99,7 +98,6 @@ public class MobSpawnHandler {
             spawnCreepers(world, player);
             spawnSpiders(world, player);
         }
-        notifyPlayersOfMobCounts(world);
     }
 
     private static void spawnZombies(ServerLevel world, Player player) {
@@ -153,13 +151,6 @@ public class MobSpawnHandler {
         // Spawn the entity and track it
         world.addFreshEntity(entity);
         currentWaveMobs.add(entity);
-    }
-
-    private static void notifyPlayersOfMobCounts(ServerLevel world) {
-        StringBuilder message = new StringBuilder("Current Wave Mob Counts:\n" + currentWaveMobs.size());
-        for (Player player : world.players()) {
-            player.sendSystemMessage(Component.literal(message.toString()));
-        }
     }
 
     private static void targetMobsToPlayer(Player player) {
