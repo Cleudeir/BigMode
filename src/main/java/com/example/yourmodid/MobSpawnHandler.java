@@ -13,6 +13,7 @@ import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent.PlayerRespawnEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -26,11 +27,8 @@ import java.util.function.Predicate;
 @Mod.EventBusSubscriber(modid = YourMod.MODID)
 public class MobSpawnHandler {
     private static final int DAYS_INTERVAL = 7;
-    private static int lastTriggeredDay = -1;
     private static final List<LivingEntity> currentWaveMobs = new ArrayList<>();
-    private static int currentWave = 0;
-    private static final Map<EntityType<?>, Integer> mobCounts = new HashMap<>();
-    private static int mobsRemainingInWave = 0;
+  
 
     @SubscribeEvent
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
@@ -39,53 +37,56 @@ public class MobSpawnHandler {
             long time = serverWorld.getDayTime();
             int dayDuration = 24000;
             int days = (int) (time / dayDuration);
-
-            // Check if it is night time (between 13000 and 23000 ticks)
             int timeOfDay = (int) (time % dayDuration);
             boolean isNightTime = timeOfDay >= 13000 && timeOfDay <= 23000;
-
-            if (days % DAYS_INTERVAL == 0 && days != lastTriggeredDay && isNightTime) {
-                lastTriggeredDay = days;
-                Collection<ServerPlayer> players = serverWorld.getPlayers((Predicate<ServerPlayer>) p -> true);
-                for (ServerPlayer player : players) {
-                    player.sendSystemMessage(Component.translatable("A new wave of mobs has spawned!"));
-                }
-                currentWave = 0;
-                spawnNextWave(serverWorld);
+           
+            if (days % DAYS_INTERVAL == 0 && currentWaveMobs.isEmpty()) {
+                if(isNightTime){
+                    Collection<ServerPlayer> players = serverWorld.getPlayers((Predicate<ServerPlayer>) p -> true);
+                    for (ServerPlayer player : players) {
+                        player.sendSystemMessage(Component.translatable("A new wave of mobs has spawned!"));
+                    }
+                    spawnNextWave(serverWorld);
+                }else {
+                    currentWaveMobs.clear();
+                }             
             }
+        }
+    }
 
-            // Check if the current wave is defeated
-            if (currentWave > 0 && mobsRemainingInWave == 0) {
-                spawnNextWave(serverWorld);
+    public static void onLivingDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof Mob) {
+            Mob mob = (Mob) event.getEntity();
+            if (currentWaveMobs.contains(mob)) {
+                currentWaveMobs.remove(mob);
+                System.err.println(currentWaveMobs.size());
             }
         }
     }
 
     @SubscribeEvent
-    public static void onLivingDeath(LivingDeathEvent event) {
-        currentWaveMobs.remove(event.getEntity());
-        mobsRemainingInWave--;
+    public static void onLiving(PlayerRespawnEvent event) {
+        LivingEntity entity = event.getEntity();
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
+            player.sendSystemMessage(
+                    Component.translatable(">>>>>>>>RESPAWNED<<<<<<<<<<<! " + player.getDisplayName().getString()));
+            targetMobsToPlayer(player);
+        }
     }
 
     public static void spawnCommandedMobWave(ServerLevel world) {
-        lastTriggeredDay = -1;
-        currentWave = 0;
         spawnNextWave(world);
     }
 
     private static void spawnNextWave(ServerLevel world) {
-        currentWave++;
-        currentWaveMobs.clear();
-        mobCounts.clear();
-        mobsRemainingInWave = 0;
-
+        currentWaveMobs.clear();    
         for (Player player : world.players()) {
             spawnZombies(world, player);
             spawnSkeletons(world, player);
             spawnCreepers(world, player);
-            spawnSpiders(world, player);
+            // spawnSpiders(world, player);
         }
-
         notifyPlayersOfMobCounts(world);
     }
 
@@ -118,32 +119,34 @@ public class MobSpawnHandler {
     }
 
     private static void spawnAndTrack(ServerLevel world, LivingEntity entity, Player target) {
+        currentWaveMobs.add(entity);
         // Calculate spawn position near the player
-        double x = target.getX() + world.random.nextInt(10) - 30;
+        double x = target.getX() + world.random.nextInt(20) - 10;
         double y = target.getY();
-        double z = target.getZ() + world.random.nextInt(10) - 30;
+        double z = target.getZ() + world.random.nextInt(20) - 10;
         entity.setPos(x, y, z);
 
         // Set the entity's target to the player
         Mob mob = (Mob) entity;
         mob.setTarget(target);
-
+        mob.setHealth(2);
         // Spawn the entity and track it
         world.addFreshEntity(entity);
-        currentWaveMobs.add(entity);
-        mobsRemainingInWave++;
-
-        // Update mob count
-        mobCounts.put(entity.getType(), mobCounts.getOrDefault(entity.getType(), 0) + 1);
     }
 
     private static void notifyPlayersOfMobCounts(ServerLevel world) {
-        StringBuilder message = new StringBuilder("Current Wave Mob Counts:\n");
-        for (Map.Entry<EntityType<?>, Integer> entry : mobCounts.entrySet()) {
-            message.append(entry.getKey().getDescription().getString()).append(": ").append(entry.getValue()).append("\n");
-        }
+        StringBuilder message = new StringBuilder("Current Wave Mob Counts:\n" + currentWaveMobs.size());        
         for (Player player : world.players()) {
             player.sendSystemMessage(Component.literal(message.toString()));
+        }
+    }
+
+    private static void targetMobsToPlayer(Player player) {
+        for (LivingEntity mob : currentWaveMobs) {
+            if (mob instanceof Mob) {
+                Mob creature = (Mob) mob;
+                creature.setTarget(player);
+            }
         }
     }
 }
