@@ -29,7 +29,7 @@ import java.util.function.Predicate;
 public class MobSpawnHandler {
     private static final int DAYS_INTERVAL = 7;
     private static final List<LivingEntity> currentWaveMobs = new ArrayList<>();
-    private static final int maxMobsPerWave = 40;
+    private static final int maxMobs = 40;
 
     @SubscribeEvent
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
@@ -41,19 +41,12 @@ public class MobSpawnHandler {
             int timeOfDay = (int) (time % dayDuration);
             boolean isNightTime = timeOfDay >= 13000 && timeOfDay <= 23000;
 
-            if (days % DAYS_INTERVAL == 0 && currentWaveMobs.size() < maxMobsPerWave / 2) {
-                if (isNightTime) {
-                    if (currentWaveMobs.isEmpty()) {
-                        Collection<ServerPlayer> players = serverWorld.getPlayers((Predicate<ServerPlayer>) p -> true);
-                        for (ServerPlayer player : players) {
-                            player.sendSystemMessage(
-                                    Component.translatable("The night starts, the mobs are incoming!"));
-                        }
-                    }
+            if (days % DAYS_INTERVAL == 0) {
+                if (isNightTime && currentWaveMobs.size() < maxMobs / 2) {
                     spawnNextWave(serverWorld);
-                } else {
-                    currentWaveMobs.clear();
                 }
+            } else {
+                currentWaveMobs.clear();
             }
         }
     }
@@ -91,7 +84,13 @@ public class MobSpawnHandler {
     }
 
     private static void spawnNextWave(ServerLevel world) {
-        currentWaveMobs.clear();
+        if (currentWaveMobs.isEmpty()) {
+            Collection<ServerPlayer> players = world.getPlayers((Predicate<ServerPlayer>) p -> true);
+            for (ServerPlayer player : players) {
+                player.sendSystemMessage(
+                        Component.translatable("The night starts, the mobs are incoming!"));
+            }
+        }
         for (Player player : world.players()) {
             spawnZombies(world, player);
             spawnSkeletons(world, player);
@@ -101,35 +100,35 @@ public class MobSpawnHandler {
     }
 
     private static void spawnZombies(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobsPerWave * 3 / 8; i++) {
+        for (int i = 0; i < maxMobs * 3 / 8; i++) {
             Zombie zombie = new Zombie(EntityType.ZOMBIE, world);
             spawnAndTrack(world, zombie, player);
         }
     }
 
     private static void spawnSkeletons(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobsPerWave / 4; i++) {
+        for (int i = 0; i < maxMobs / 4; i++) {
             Skeleton skeleton = new Skeleton(EntityType.SKELETON, world);
             spawnAndTrack(world, skeleton, player);
         }
     }
 
     private static void spawnCreepers(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobsPerWave / 4; i++) {
+        for (int i = 0; i < maxMobs / 4; i++) {
             Creeper creeper = new Creeper(EntityType.CREEPER, world);
             spawnAndTrack(world, creeper, player);
         }
     }
 
     private static void spawnSpiders(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobsPerWave / 8; i++) {
+        for (int i = 0; i < maxMobs / 8; i++) {
             Spider spider = new Spider(EntityType.SPIDER, world);
             spawnAndTrack(world, spider, player);
         }
     }
 
     private static void spawnAndTrack(ServerLevel world, LivingEntity entity, Player target) {
-        if (currentWaveMobs.size() == maxMobsPerWave) {
+        if (currentWaveMobs.size() == maxMobs) {
             return;
         }
         // Calculate spawn position near the player
