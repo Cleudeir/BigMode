@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
+        "bigmode",
         "Heightmap",
         "Respawn",
         "RESPAWNED"
-    ]
+    ],
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

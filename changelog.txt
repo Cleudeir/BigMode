@@ -462,7 +462,7 @@
            cause a crash rather than merely being logged and allowing the game to
            reach the main menu.
            Fixes #8720
- - 43.1.48 Add missing semi-colon near the Dist import statement in example mod.
+ - 43.1.48 Add missing semi-colon near the Dist import statement in bigmode.
  - 43.1.47 Fix ClientModEvents example not subscribing to client-sided events (#9097)
  - 43.1.46 Use GitHub action to lock issues with the `spam` label (#9087)
  - 43.1.45 Remove structures slave map to Feature registry (#9091)

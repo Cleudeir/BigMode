@@ -1,4 +1,4 @@
-package com.example.yourmodid;
+package com.example.bigmode;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;

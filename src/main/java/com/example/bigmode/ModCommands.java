@@ -1,4 +1,4 @@
-package com.example.yourmodid;
+package com.example.bigmode;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
