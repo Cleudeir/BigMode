@@ -131,7 +131,7 @@ public class MobBlockBreaker {
                         serverWorld.setBlockAndUpdate(pos, blockState);
                         iterator.remove();
                         System.out.println("Entry removed from the map.");
-                        break; // Break out of the loop after restoring one block
+                        break; 
                     }
                 }
                 
