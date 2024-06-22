@@ -1,6 +1,7 @@
 package com.example.bigmode;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -8,6 +9,8 @@ import java.util.Random;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.monster.Creeper;
@@ -15,6 +18,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
@@ -24,7 +28,6 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = YourMod.MODID)
 public class MobBlockBreaker {
 
-    private static final int RESTORATION_DELAY_TICKS = 60; // 20 seconds in ticks
     private static final Map<BlockPos, BlockState> brokenBlocks = new HashMap<>();
     private static boolean restorationScheduled = false;
 
@@ -106,13 +109,37 @@ public class MobBlockBreaker {
         if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {
             ServerLevel serverWorld = (ServerLevel) event.level;
             long time = serverWorld.getGameTime();
-            // Check conditions to schedule restoration
-            if (restorationScheduled && time % RESTORATION_DELAY_TICKS == 0) {
-                restoreBrokenBlocks(serverWorld, brokenBlocks);
+            
+            // Assuming restorationScheduled is a class-level variable
+            if (restorationScheduled && time % 20 * 10 == 0) { // 20 ticks = 1 second
                 restorationScheduled = false;
+                
+                Iterator<Map.Entry<BlockPos, BlockState>> iterator = brokenBlocks.entrySet().iterator();
+                while (iterator.hasNext()) {
+                    Map.Entry<BlockPos, BlockState> entry = iterator.next();
+                    BlockPos pos = entry.getKey();
+                    
+                    // Verify if there's a mob or player at the position
+                    List<Entity> entities = serverWorld.getEntities(null, new AABB(pos));
+                    boolean positionOccupied = entities.stream().anyMatch(entity -> entity instanceof LivingEntity);
+                    
+                    if (positionOccupied) {
+                        System.out.println("Position " + pos + " is still occupied, skipping restoration.");
+                    } else {
+                        BlockState blockState = entry.getValue();
+                        System.out.println("Restoring block at position: " + pos + " to state: " + blockState);
+                        serverWorld.setBlockAndUpdate(pos, blockState);
+                        iterator.remove();
+                        System.out.println("Entry removed from the map.");
+                        break; // Break out of the loop after restoring one block
+                    }
+                }
+                
+                restorationScheduled = true;
             }
         }
     }
+    
 
     @SubscribeEvent
     public static void onExplosionStart(ExplosionEvent.Detonate event) {
@@ -135,19 +162,4 @@ public class MobBlockBreaker {
         BlockState state = event.getState();
         brokenBlocks.put(position, state);
     }
-
-    private static void restoreBrokenBlocks(ServerLevel world, Map<BlockPos, BlockState> blocksToRestore) {
-        // Restore broken blocks logic
-        for (Map.Entry<BlockPos, BlockState> entry : blocksToRestore.entrySet()) {
-            BlockPos pos = entry.getKey();
-            BlockState state = entry.getValue();
-
-            System.out.println("state " + state);
-            world.setBlockAndUpdate(pos, state); // Restore the block
-
-        }
-        // Remove the restored blocks from the main map
-        brokenBlocks.entrySet().removeAll(blocksToRestore.entrySet());
-    }
-
 }
