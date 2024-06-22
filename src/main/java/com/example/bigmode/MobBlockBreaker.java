@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.level.BlockEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -23,7 +24,7 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = YourMod.MODID)
 public class MobBlockBreaker {
 
-    private static final int RESTORATION_DELAY_TICKS = 10; // 20 seconds in ticks
+    private static final int RESTORATION_DELAY_TICKS = 60; // 20 seconds in ticks
     private static final Map<BlockPos, BlockState> brokenBlocks = new HashMap<>();
     private static boolean restorationScheduled = false;
 
@@ -114,23 +115,25 @@ public class MobBlockBreaker {
     }
 
     @SubscribeEvent
-    public static void onExplosionDetonate(ExplosionEvent.Detonate event) {
-        // Check if the explosion source is a creeper (optional)
-        if (event.getExplosion().getExploder() instanceof Creeper) { // Adjusted check
-
-            List<BlockPos> affectedBlocks = event.getAffectedBlocks();
-            ServerLevel world = (ServerLevel) event.getLevel(); // Assuming the event provides access to the world
-
-            for (BlockPos breakPos : affectedBlocks) {
-                // Get the block state at the affected position
-                BlockState state = world.getBlockState(breakPos);
-
-                // Ensure the block is not already air and can be broken
-                if (state.getBlock() != Blocks.AIR && state.getDestroySpeed(world, breakPos) >= 0) {
-                    brokenBlocks.put(breakPos, state); // Store block position and state
+    public static void onExplosionStart(ExplosionEvent.Detonate event) {
+        if (event.getExplosion().getExploder() instanceof Creeper) {
+            ServerLevel world = (ServerLevel) event.getLevel();
+            List<BlockPos> affectedBlocks = event.getAffectedBlocks(); // Access blocks to be affec
+            event.getExplosion().getToBlow();
+            for (BlockPos pos : affectedBlocks) {
+                BlockState state = world.getBlockState(pos);
+                if (state.getBlock() != Blocks.AIR) {
+                    brokenBlocks.put(pos, state); // Store block position and state before explosion
                 }
             }
         }
+    }
+
+    @SubscribeEvent
+    public static void onDestroyBlock(BlockEvent.BreakEvent event) {
+        BlockPos position = event.getPos();
+        BlockState state = event.getState();
+        brokenBlocks.put(position, state);
     }
 
     private static void restoreBrokenBlocks(ServerLevel world, Map<BlockPos, BlockState> blocksToRestore) {
@@ -138,9 +141,10 @@ public class MobBlockBreaker {
         for (Map.Entry<BlockPos, BlockState> entry : blocksToRestore.entrySet()) {
             BlockPos pos = entry.getKey();
             BlockState state = entry.getValue();
-            if (world.getBlockState(pos).getBlock() == Blocks.AIR) {
-                world.setBlockAndUpdate(pos, state); // Restore the block
-            }
+
+            System.out.println("state " + state);
+            world.setBlockAndUpdate(pos, state); // Restore the block
+
         }
         // Remove the restored blocks from the main map
         brokenBlocks.entrySet().removeAll(blocksToRestore.entrySet());

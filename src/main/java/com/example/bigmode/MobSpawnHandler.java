@@ -64,7 +64,7 @@ public class MobSpawnHandler {
 
         if (event.getEntity() instanceof Mob) {
             Mob mob = (Mob) event.getEntity();
-            System.out.println(mob.getName().getString() + " has died.");       
+            //System.out.println(mob.getName().getString() + " has died.");       
 
             if (currentWaveMobs.contains(mob)) {
                 currentWaveMobs.remove(mob);
@@ -153,7 +153,7 @@ public class MobSpawnHandler {
         // Set the entity's target to the player
         Mob mob = (Mob) entity;
         mob.setTarget(target);
-        mob.setHealth(1);
+       // mob.setHealth(1);
 
 
         if (mob instanceof Skeleton) {
