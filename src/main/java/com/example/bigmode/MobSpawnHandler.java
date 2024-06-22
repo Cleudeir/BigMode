@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Creeper;
@@ -13,6 +14,8 @@ import net.minecraft.world.entity.monster.Skeleton;
 import net.minecraft.world.entity.monster.Spider;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
@@ -152,6 +155,21 @@ public class MobSpawnHandler {
         Mob mob = (Mob) entity;
         mob.setTarget(target);
         mob.setHealth(1);
+
+        if (mob instanceof Skeleton) {
+            // Equip the skeleton with a bow and arrows
+            Skeleton skeleton = (Skeleton) mob;
+    
+            // Check if the skeleton doesn't already have a bow (optional)
+            if (!skeleton.isHolding(Items.BOW)) {
+                skeleton.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); // Equip a bow
+            }
+    
+            // Check if the skeleton doesn't already have arrows (optional)
+            if (skeleton.getOffhandItem().isEmpty() || skeleton.getOffhandItem().getItem() != Items.ARROW) {
+                skeleton.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.ARROW, 64)); // Give arrows
+            }
+        }
 
         // Spawn the entity and track it
         world.addFreshEntity(entity);
