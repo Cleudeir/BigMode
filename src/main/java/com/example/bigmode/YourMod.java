@@ -19,7 +19,8 @@ public class YourMod {
 
         // Register the MobSpawnHandler
         MinecraftForge.EVENT_BUS.register(new MobSpawnHandler());
-        MinecraftForge.EVENT_BUS.register(new ModCommands());
+        MinecraftForge.EVENT_BUS.register(new ModCommands());      
+        MinecraftForge.EVENT_BUS.register(new InitialItems());
     }
 
     private void setup(final FMLCommonSetupEvent event) {

@@ -23,6 +23,9 @@ import net.minecraftforge.fml.common.Mod;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 @Mod.EventBusSubscriber(modid = YourMod.MODID)
@@ -81,6 +84,7 @@ public class MobSpawnHandler {
         }
     }
 
+  
     public static void spawnCommandedMobWave(ServerLevel world) {
         spawnNextWave(world);
     }
@@ -147,10 +151,11 @@ public class MobSpawnHandler {
         // Set the entity's target to the player
         Mob mob = (Mob) entity;
         mob.setTarget(target);
-        mob.setHealth(2);
+        mob.setHealth(1);
 
         // Spawn the entity and track it
         world.addFreshEntity(entity);
+        MobBlockBreaker.enableMobBlockBreaking(mob, world, target);        
         currentWaveMobs.add(entity);
     }
 
