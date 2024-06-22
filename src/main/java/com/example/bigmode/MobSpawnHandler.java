@@ -61,7 +61,6 @@ public class MobSpawnHandler {
 
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
-
         if (event.getEntity() instanceof Mob) {
             Mob mob = (Mob) event.getEntity();
             //System.out.println(mob.getName().getString() + " has died.");       
@@ -153,7 +152,7 @@ public class MobSpawnHandler {
         // Set the entity's target to the player
         Mob mob = (Mob) entity;
         mob.setTarget(target);
-       // mob.setHealth(1);
+        //mob.setHealth(1);
 
 
         if (mob instanceof Skeleton) {

@@ -140,7 +140,6 @@ public class MobBlockBreaker {
         }
     }
     
-
     @SubscribeEvent
     public static void onExplosionStart(ExplosionEvent.Detonate event) {
         if (event.getExplosion().getExploder() instanceof Creeper) {
