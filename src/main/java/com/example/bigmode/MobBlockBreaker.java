@@ -1,26 +1,29 @@
 package com.example.bigmode;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
 
 @Mod.EventBusSubscriber(modid = YourMod.MODID)
 public class MobBlockBreaker {
 
-    private static final int RESTORATION_DELAY_TICKS = 20 * 20; // 20 seconds in ticks
+    private static final int RESTORATION_DELAY_TICKS = 10; // 20 seconds in ticks
     private static final Map<BlockPos, BlockState> brokenBlocks = new HashMap<>();
     private static boolean restorationScheduled = false;
 
@@ -104,22 +107,43 @@ public class MobBlockBreaker {
             long time = serverWorld.getGameTime();
             // Check conditions to schedule restoration
             if (restorationScheduled && time % RESTORATION_DELAY_TICKS == 0) {
-                restoreBrokenBlocks(serverWorld);
+                restoreBrokenBlocks(serverWorld, brokenBlocks);
                 restorationScheduled = false;
             }
         }
     }
 
-    private static void restoreBrokenBlocks(ServerLevel world) {
+    @SubscribeEvent
+    public static void onExplosionDetonate(ExplosionEvent.Detonate event) {
+        // Check if the explosion source is a creeper (optional)
+        if (event.getExplosion().getExploder() instanceof Creeper) { // Adjusted check
+
+            List<BlockPos> affectedBlocks = event.getAffectedBlocks();
+            ServerLevel world = (ServerLevel) event.getLevel(); // Assuming the event provides access to the world
+
+            for (BlockPos breakPos : affectedBlocks) {
+                // Get the block state at the affected position
+                BlockState state = world.getBlockState(breakPos);
+
+                // Ensure the block is not already air and can be broken
+                if (state.getBlock() != Blocks.AIR && state.getDestroySpeed(world, breakPos) >= 0) {
+                    brokenBlocks.put(breakPos, state); // Store block position and state
+                }
+            }
+        }
+    }
+
+    private static void restoreBrokenBlocks(ServerLevel world, Map<BlockPos, BlockState> blocksToRestore) {
         // Restore broken blocks logic
-        for (Map.Entry<BlockPos, BlockState> entry : brokenBlocks.entrySet()) {
+        for (Map.Entry<BlockPos, BlockState> entry : blocksToRestore.entrySet()) {
             BlockPos pos = entry.getKey();
             BlockState state = entry.getValue();
             if (world.getBlockState(pos).getBlock() == Blocks.AIR) {
                 world.setBlockAndUpdate(pos, state); // Restore the block
             }
         }
-        brokenBlocks.clear(); // Clear the list after restoration
+        // Remove the restored blocks from the main map
+        brokenBlocks.entrySet().removeAll(blocksToRestore.entrySet());
     }
 
 }

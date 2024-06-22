@@ -64,12 +64,11 @@ public class MobSpawnHandler {
 
         if (event.getEntity() instanceof Mob) {
             Mob mob = (Mob) event.getEntity();
-            System.out.println(mob.getName().getString() + " has died.");
-            System.err.println("currentWaveMobs >>>>>>>:" + currentWaveMobs.size());
+            System.out.println(mob.getName().getString() + " has died.");       
 
             if (currentWaveMobs.contains(mob)) {
                 currentWaveMobs.remove(mob);
-                System.err.println("currentWaveMobs >>>>>>>:" + currentWaveMobs.size());
+              
             }
         }
     }
@@ -156,6 +155,7 @@ public class MobSpawnHandler {
         mob.setTarget(target);
         mob.setHealth(1);
 
+
         if (mob instanceof Skeleton) {
             // Equip the skeleton with a bow and arrows
             Skeleton skeleton = (Skeleton) mob;
@@ -170,7 +170,7 @@ public class MobSpawnHandler {
                 skeleton.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.ARROW, 64)); // Give arrows
             }
         }
-
+        
         // Spawn the entity and track it
         world.addFreshEntity(entity);
         MobBlockBreaker.enableMobBlockBreaking(mob, world, target);        
