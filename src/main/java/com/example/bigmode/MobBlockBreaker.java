@@ -54,6 +54,8 @@ public class MobBlockBreaker {
      private static void scheduleBlockBreak(BlockPos mobPos, BlockPos targetPos) {
         int distanceSq = (int) mobPos.distSqr(targetPos);
         if (distanceSq > MAX_DISTANCE_SQ) {
+
+         
         // Check if the mob is too close to the player
         int distanceX = targetPos.getX() - mobPos.getX();
         int distanceZ = targetPos.getZ() - mobPos.getZ();
