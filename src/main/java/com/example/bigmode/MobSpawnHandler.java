@@ -1,5 +1,10 @@
 package com.example.bigmode;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.function.Predicate;
+
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -16,20 +21,14 @@ import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.TickEvent.PlayerTickEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent.PlayerRespawnEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 
 @Mod.EventBusSubscriber(modid = YourMod.MODID)
 public class MobSpawnHandler {
@@ -44,12 +43,11 @@ public class MobSpawnHandler {
         if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {
             ServerLevel serverWorld = (ServerLevel) event.level;
             long time = serverWorld.getDayTime();
-            int dayDuration = 24000;
-            int days = (int) (time / dayDuration);
-            int timeOfDay = (int) (time % dayDuration);
-            boolean isNightTime = timeOfDay >= 13000 && timeOfDay <= 23000;
+            int day = (int) time / 24000;
+            int timeDay = (int) time - (day * 24000);
+            boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
 
-            if (days % DAYS_INTERVAL == 0) {
+            if (day % DAYS_INTERVAL == 0) {
                 if (isNightTime && currentWaveMobs.size() < maxMobPack) {
                     spawnNextWave(serverWorld);
                 }
@@ -63,11 +61,8 @@ public class MobSpawnHandler {
     public static void onLivingDeath(LivingDeathEvent event) {
         if (event.getEntity() instanceof Mob) {
             Mob mob = (Mob) event.getEntity();
-            //System.out.println(mob.getName().getString() + " has died.");       
-
             if (currentWaveMobs.contains(mob)) {
                 currentWaveMobs.remove(mob);
-              
             }
         }
     }
@@ -77,15 +72,59 @@ public class MobSpawnHandler {
         LivingEntity entity = event.getEntity();
         if (entity instanceof Player) {
             Player player = (Player) entity;
+            ServerLevel world = (ServerLevel) player.level();
             targetMobsToPlayer(player);
             // Apply Damage Resistance effect for 5 seconds (100 ticks)
             player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false));
             player.sendSystemMessage(
                     Component.translatable("You are invulnerable to damage for 5 seconds!"));
+            mobTeleport(world, player);
         }
     }
 
-  
+    @SubscribeEvent
+    public static void onLiving(PlayerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            Level world = event.player.getCommandSenderWorld();
+            if (world instanceof ServerLevel) {
+                ServerLevel serverWorld = (ServerLevel) world;
+                long time = world.getDayTime();
+                int day = (int) time / 24000;
+                int timeDay = (int) time - (day * 24000);
+                boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
+                if (time % (20 * 30) == 0 && isNightTime && day % DAYS_INTERVAL == 0) {
+                    Player player = event.player;
+                    mobTeleport(serverWorld, player);
+                }
+            }
+
+        }
+    }
+
+    public static void mobTeleport(ServerLevel world, Player player) {
+        double playerPosX = player.getX();
+        double playerPosY = player.getY();
+
+        for (int i = 0; i < currentWaveMobs.size(); i++) {
+            LivingEntity entity = currentWaveMobs.get(i);
+            Mob mob = (Mob) entity;
+            double firstMobPosX = mob.getX();
+            double firstMobPosY = mob.getY();
+            double distance = Math
+                    .sqrt(Math.pow(playerPosX - firstMobPosX, 2) + Math.pow(playerPosY - firstMobPosY, 2));
+            System.out.println("Distance: " + distance + ' ' + mob.getName().getString());
+            if (distance > 30) {
+                // teleport mobs
+                double x = playerPosX + world.random.nextInt(30) - 40;
+                double z = playerPosY + world.random.nextInt(30) - 40;
+                double y = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) x, (int) z);
+                mob.teleportTo(x, y, z);
+                mob.setTarget(player);
+            }
+        }
+
+    }
+
     public static void spawnCommandedMobWave(ServerLevel world) {
         spawnNextWave(world);
     }
@@ -141,10 +180,10 @@ public class MobSpawnHandler {
         // Calculate spawn position near the player
         double x = target.getX() + world.random.nextInt(30) - 40;
         double z = target.getZ() + world.random.nextInt(30) - 40;
+        double y = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) x, (int) z);
 
         // Get the highest block at the (x, z) location to ensure the mob spawns on the
         // ground
-        double y = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) x, (int) z);
 
         // Set the entity's position
         entity.setPos(x, y, z);
@@ -152,27 +191,26 @@ public class MobSpawnHandler {
         // Set the entity's target to the player
         Mob mob = (Mob) entity;
         mob.setTarget(target);
-        //mob.setHealth(1);
-
+        // mob.setHealth(1);
 
         if (mob instanceof Skeleton) {
             // Equip the skeleton with a bow and arrows
             Skeleton skeleton = (Skeleton) mob;
-    
+
             // Check if the skeleton doesn't already have a bow (optional)
             if (!skeleton.isHolding(Items.BOW)) {
                 skeleton.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.BOW)); // Equip a bow
             }
-    
+
             // Check if the skeleton doesn't already have arrows (optional)
             if (skeleton.getOffhandItem().isEmpty() || skeleton.getOffhandItem().getItem() != Items.ARROW) {
                 skeleton.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.ARROW, 64)); // Give arrows
             }
         }
-        
+
         // Spawn the entity and track it
         world.addFreshEntity(entity);
-        MobBlockBreaker.enableMobBlockBreaking(mob, world, target);        
+        MobBlockBreaker.enableMobBlockBreaking(mob, world, target);
         currentWaveMobs.add(entity);
     }
 
