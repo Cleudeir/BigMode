@@ -21,7 +21,7 @@ public class storage {
     private static String getWorldName() {
         MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
         if (server != null) {
-            return server.getWorldData().getLevelName().toLowerCase(); // Ensure consistent naming convention
+            return server.getWorldData().getLevelName().toLowerCase().replaceAll(" ", "_");
         } else {
             return "unknown_world";
         }

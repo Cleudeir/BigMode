@@ -1,9 +1,7 @@
 package com.example.bigmode;
 
-import java.util.HashMap;
-import java.util.Iterator;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -18,43 +16,64 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = YourMod.MODID)
 public class BlockRestorer {
 
-    private static final Map<BlockPos, BlockState> brokenBlocks = new HashMap<>();
+    private static final List<BlockEntry> brokenBlocks = new ArrayList<>();
+    private static int index = 0;
+    private static ServerLevel world = null;
 
     public static void addBrokenBlock(BlockPos pos, BlockState state) {
-        brokenBlocks.put(pos, state);
+        brokenBlocks.add(new BlockEntry(pos, state));
+        if (world != null) {        
+            BlockAnimationHandler.scheduleBlockBreak(world, pos, state);
+        }
     }
 
-    @SubscribeEvent
+     @SubscribeEvent
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
         if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {
             ServerLevel serverWorld = (ServerLevel) event.level;
+            world = serverWorld;
             long time = serverWorld.getDayTime();
             int day = (int) time / 24000;
             int timeDay = (int) time - (day * 24000);
-            boolean isNightTime = timeDay  >= 13000 && timeDay <= 23000;
+            boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
 
-            if (!isNightTime && brokenBlocks.size() > 0 && time % (20 * 10) == 0) {
-                Iterator<Map.Entry<BlockPos, BlockState>> iterator = brokenBlocks.entrySet().iterator();
-                while (iterator.hasNext()) {
-                    Map.Entry<BlockPos, BlockState> entry = iterator.next();
-                    BlockPos pos = entry.getKey();
+            if (!isNightTime && !brokenBlocks.isEmpty() && time % 20 * 1 == 0) {
+                BlockEntry item = brokenBlocks.get(index);
+                BlockState state = item.getState();
+                BlockPos pos = item.getPos();
+                // Verify if there's a mob or player at the position
+                List<Entity> entities = serverWorld.getEntities(null, new AABB(pos));
+                boolean positionOccupied = entities.stream().anyMatch(entity -> entity instanceof LivingEntity);
 
-                    // Verify if there's a mob or player at the position
-                    List<Entity> entities = serverWorld.getEntities(null, new AABB(pos));
-                    boolean positionOccupied = entities.stream().anyMatch(entity -> entity instanceof LivingEntity);
-
-                    if (positionOccupied) {
-                        System.out.println("Position " + pos + " is still occupied, skipping restoration.");
-                        continue;
-                    } else {
-                        BlockState blockState = entry.getValue();
-                        System.out.println("Restoring block at position: " + pos + " to state: " + blockState);
-                        serverWorld.setBlockAndUpdate(pos, blockState);
-                        System.out.println("Entry removed from the map.");
-                        iterator.remove();
-                    }
+                if (positionOccupied) {
+                    System.out.println("Position " + pos + " is still occupied, skipping restoration.");
+                    index++;
+                } else {
+                    System.out.println("Restoring block at position: " + pos + " to state: " + state);
+                    serverWorld.setBlockAndUpdate(pos, state);
+                    System.out.println("Entry removed from the list.");
+                    brokenBlocks.remove(index);
+                    index = 0;
                 }
             }
+        }
+    }
+
+    private static class BlockEntry {
+        private final BlockPos pos;
+        private final BlockState state;
+
+        public BlockEntry(BlockPos pos, BlockState state) {
+            this.pos = pos;
+            this.state = state;
+        }
+
+        public BlockPos getPos() {
+            return pos;
+        }
+
+        public BlockState getState() {
+            return state;
         }
     }
 }

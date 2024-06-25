@@ -39,20 +39,48 @@ public class MobSpawnHandler {
     private static final int maxMobDiff = maxMobs - maxMobPack;
 
     @SubscribeEvent
-    public static void onLevelTick(TickEvent.LevelTickEvent event) {
-        if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {
-            ServerLevel serverWorld = (ServerLevel) event.level;
-            long time = serverWorld.getDayTime();
-            int day = (int) time / 24000;
-            int timeDay = (int) time - (day * 24000);
-            boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
-
-            if (day % DAYS_INTERVAL == 0) {
-                if (isNightTime && currentWaveMobs.size() < maxMobPack) {
-                    spawnNextWave(serverWorld);
+    public static void onLiving(PlayerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END) {
+            Level world = event.player.getCommandSenderWorld();
+            if (world instanceof ServerLevel) {
+                ServerLevel serverWorld = (ServerLevel) world;
+                long time = world.getDayTime();
+                int day = (int) time / 24000;
+                int timeDay = (int) time - (day * 24000);
+                boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
+                Player player = event.player;
+                if (time % 1000 == 0) {
+                    System.out.println("currentWaveMobs.size(): " + currentWaveMobs.size());
                 }
-            } else {
-                currentWaveMobs.clear();
+                if (isNightTime && day % DAYS_INTERVAL == 0) {
+                    if (time % (20 * 1) == 0) {
+
+                        System.out.println("Player: " + player.getName().getString());
+                        if (currentWaveMobs.size() > 0) {
+                            for (int i = 0; i < currentWaveMobs.size(); i++) {
+                                LivingEntity entity = currentWaveMobs.get(i);
+                                int id = entity.getId();
+                                Mob mob = (Mob) world.getEntity(id);
+                                if (mob != null) {
+                                    System.out.println("Mob ID: " + id);
+                                    System.out.println("Mob Type: " + mob.getType());
+                                    MobBlockBreaker.enableMobBlockBreaking(mob, serverWorld, player);
+                                    mobTeleport(mob, serverWorld, player);
+                                }
+                            }
+                        }
+                        int percentDay = (int) time % 24000;
+                        int hours = ((int) percentDay / 1000 + 6) % 24; // Adjust for Minecraft's day
+                        int minutes = (int) ((percentDay % 1000) / 16.6667); // Approximately convert
+                        System.out.printf("Current Minecraft time: Day %d, Time %02d:%02d%n", day, hours, minutes);
+
+                        if (currentWaveMobs.size() < maxMobs) {
+                            spawnNextWave(serverWorld);
+                        }
+                    }
+                } else {
+                    currentWaveMobs.clear();
+                }
             }
         }
     }
@@ -78,51 +106,33 @@ public class MobSpawnHandler {
             player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false));
             player.sendSystemMessage(
                     Component.translatable("You are invulnerable to damage for 5 seconds!"));
-            mobTeleport(world, player);
-        }
-    }
-
-    @SubscribeEvent
-    public static void onLiving(PlayerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END) {
-            Level world = event.player.getCommandSenderWorld();
-            if (world instanceof ServerLevel) {
-                ServerLevel serverWorld = (ServerLevel) world;
-                long time = world.getDayTime();
-                int day = (int) time / 24000;
-                int timeDay = (int) time - (day * 24000);
-                boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
-                if (time % (20 * 30) == 0 && isNightTime && day % DAYS_INTERVAL == 0) {
-                    Player player = event.player;
-                    mobTeleport(serverWorld, player);
-                }
+            if (currentWaveMobs.size() == 0) {
+                return;
             }
-
+            for (int i = 0; i < currentWaveMobs.size(); i++) {
+                LivingEntity mobs = currentWaveMobs.get(i);
+                int id = mobs.getId();
+                Mob mob = (Mob) world.getEntity(id);
+                mobTeleport(mob, world, player);
+            }
         }
     }
 
-    public static void mobTeleport(ServerLevel world, Player player) {
+    public static void mobTeleport(Mob mob, ServerLevel world, Player player) {
         double playerPosX = player.getX();
         double playerPosY = player.getY();
-
-        for (int i = 0; i < currentWaveMobs.size(); i++) {
-            LivingEntity entity = currentWaveMobs.get(i);
-            Mob mob = (Mob) entity;
-            double firstMobPosX = mob.getX();
-            double firstMobPosY = mob.getY();
-            double distance = Math
-                    .sqrt(Math.pow(playerPosX - firstMobPosX, 2) + Math.pow(playerPosY - firstMobPosY, 2));
-            System.out.println("Distance: " + distance + ' ' + mob.getName().getString());
-            if (distance > 30) {
-                // teleport mobs
-                double x = playerPosX + world.random.nextInt(30) - 40;
-                double z = playerPosY + world.random.nextInt(30) - 40;
-                double y = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) x, (int) z);
-                mob.teleportTo(x, y, z);
-                mob.setTarget(player);
-            }
+        double firstMobPosX = mob.getX();
+        double firstMobPosY = mob.getY();
+        double distance = Math
+                .sqrt(Math.pow(playerPosX - firstMobPosX, 2) + Math.pow(playerPosY - firstMobPosY, 2));
+        System.out.println("Distance: " + distance + ' ' + mob.getName().getString());
+        if (distance > 30) {
+            double x = playerPosX + world.random.nextInt(30) - 40;
+            double z = playerPosY + world.random.nextInt(30) - 40;
+            double y = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) x, (int) z);
+            mob.teleportTo(x, y, z);
+            mob.setTarget(player);
         }
-
     }
 
     public static void spawnCommandedMobWave(ServerLevel world) {
@@ -138,45 +148,48 @@ public class MobSpawnHandler {
             }
         }
         for (Player player : world.players()) {
-            spawnZombies(world, player);
-            spawnSkeletons(world, player);
-            spawnCreepers(world, player);
-            spawnSpiders(world, player);
+            if (currentWaveMobs.size() % 2 == 0) {
+                spawnZombies(world, player);
+            } else if (currentWaveMobs.size() % 2 == 0) {
+                spawnSkeletons(world, player);
+            } else if (currentWaveMobs.size() % 3 == 0) {
+                spawnCreepers(world, player);
+            } else if (currentWaveMobs.size() % 5 == 0) {
+                spawnSpiders(world, player);
+            }
         }
     }
 
     private static void spawnZombies(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobDiff * 2 / 4; i++) {
+        for (int i = 0; i < 1; i++) {
             Zombie zombie = new Zombie(EntityType.ZOMBIE, world);
             spawnAndTrack(world, zombie, player);
         }
     }
 
     private static void spawnSkeletons(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobDiff * 1 / 4; i++) {
+        for (int i = 0; i < 1; i++) {
             Skeleton skeleton = new Skeleton(EntityType.SKELETON, world);
             spawnAndTrack(world, skeleton, player);
         }
     }
 
     private static void spawnCreepers(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobDiff * 1 / 4; i++) {
+        for (int i = 0; i < 1; i++) {
             Creeper creeper = new Creeper(EntityType.CREEPER, world);
             spawnAndTrack(world, creeper, player);
         }
     }
 
     private static void spawnSpiders(ServerLevel world, Player player) {
-        for (int i = 0; i < maxMobDiff * 1 / 4; i++) {
+        for (int i = 0; i < 1; i++) {
             Spider spider = new Spider(EntityType.SPIDER, world);
             spawnAndTrack(world, spider, player);
         }
     }
 
     private static void spawnAndTrack(ServerLevel world, LivingEntity entity, Player target) {
-        if (currentWaveMobs.size() == maxMobs) {
-            return;
-        }
+
         // Calculate spawn position near the player
         double x = target.getX() + world.random.nextInt(30) - 40;
         double z = target.getZ() + world.random.nextInt(30) - 40;
@@ -191,7 +204,7 @@ public class MobSpawnHandler {
         // Set the entity's target to the player
         Mob mob = (Mob) entity;
         mob.setTarget(target);
-        // mob.setHealth(1);
+        mob.setHealth(100);
 
         if (mob instanceof Skeleton) {
             // Equip the skeleton with a bow and arrows
@@ -210,7 +223,6 @@ public class MobSpawnHandler {
 
         // Spawn the entity and track it
         world.addFreshEntity(entity);
-        MobBlockBreaker.enableMobBlockBreaking(mob, world, target);
         currentWaveMobs.add(entity);
     }
 
