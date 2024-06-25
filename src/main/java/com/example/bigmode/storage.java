@@ -40,7 +40,7 @@ public class storage {
         } catch (IOException e) {
             System.out.println("Error loading initial items data for " + name + ": " + e.getMessage());
         }
-        return new HashSet<>();    
+        return new HashSet<>();
     }
 
     public static void saveInitialItemsData(String name, HashSet<UUID> items) {

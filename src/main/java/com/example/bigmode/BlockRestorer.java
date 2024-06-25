@@ -5,7 +5,6 @@ import java.util.List;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.fml.common.Mod;
@@ -30,10 +29,9 @@ public class BlockRestorer {
             BlockEntry item = brokenBlocks.get(index);
             BlockState state = item.getState();
             BlockPos pos = item.getPos();
-            // verify if exists entity on position
             boolean entityExists = serverWorld.getEntities(null, state.getShape(serverWorld, pos).bounds().move(pos))
                     .size() > 0;
-            System.out.println("brokenBlocks: " + brokenBlocks);
+            System.out.println("brokenBlocks: " + brokenBlocks.size());
             if (state != null && state != Blocks.AIR.defaultBlockState() && serverWorld != null && !entityExists) {
                 serverWorld.setBlockAndUpdate(pos, state);
                 brokenBlocks.remove(index);
@@ -44,7 +42,6 @@ public class BlockRestorer {
                 } else {
                     index++;
                 }
-
             }
         }
     }
