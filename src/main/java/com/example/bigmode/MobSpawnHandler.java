@@ -49,13 +49,11 @@ public class MobSpawnHandler {
                 int timeDay = (int) time - (day * 24000);
                 boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
                 Player player = event.player;
-                if (time % 1000 == 0) {
-                    System.out.println("currentWaveMobs.size(): " + currentWaveMobs.size());
+                if (!isNightTime) {
+                    currentWaveMobs.clear();
                 }
                 if (isNightTime && day % DAYS_INTERVAL == 0) {
-                    if (time % (20 * 1) == 0) {
-
-                        System.out.println("Player: " + player.getName().getString());
+                    if (time % (20 * 0.5) == 0) {
                         if (currentWaveMobs.size() > 0) {
                             for (int i = 0; i < currentWaveMobs.size(); i++) {
                                 LivingEntity entity = currentWaveMobs.get(i);
@@ -65,22 +63,26 @@ public class MobSpawnHandler {
                                     System.out.println("Mob ID: " + id);
                                     System.out.println("Mob Type: " + mob.getType());
                                     MobBlockBreaker.enableMobBlockBreaking(mob, serverWorld, player);
+                                    mob.setTarget(player);
                                     mobTeleport(mob, serverWorld, player);
                                 }
                             }
                         }
+
+                        if (currentWaveMobs.size() < maxMobs) {
+                            spawnNextWave(serverWorld);
+                        }
+
+                        System.out.println("Player: " + player.getName().getString());
+                        System.out.println("currentWaveMobs.size(): " + currentWaveMobs.size());
                         int percentDay = (int) time % 24000;
                         int hours = ((int) percentDay / 1000 + 6) % 24; // Adjust for Minecraft's day
                         int minutes = (int) ((percentDay % 1000) / 16.6667); // Approximately convert
                         System.out.printf("Current Minecraft time: Day %d, Time %02d:%02d%n", day, hours, minutes);
 
-                        if (currentWaveMobs.size() < maxMobs) {
-                            spawnNextWave(serverWorld);
-                        }
                     }
-                } else {
-                    currentWaveMobs.clear();
                 }
+
             }
         }
     }
@@ -113,7 +115,10 @@ public class MobSpawnHandler {
                 LivingEntity mobs = currentWaveMobs.get(i);
                 int id = mobs.getId();
                 Mob mob = (Mob) world.getEntity(id);
-                mobTeleport(mob, world, player);
+                if (mob != null) {
+                    mob.setTarget(player);
+                    mobTeleport(mob, world, player);
+                }
             }
         }
     }
@@ -148,15 +153,10 @@ public class MobSpawnHandler {
             }
         }
         for (Player player : world.players()) {
-            if (currentWaveMobs.size() % 2 == 0) {
-                spawnZombies(world, player);
-            } else if (currentWaveMobs.size() % 2 == 0) {
-                spawnSkeletons(world, player);
-            } else if (currentWaveMobs.size() % 3 == 0) {
-                spawnCreepers(world, player);
-            } else if (currentWaveMobs.size() % 5 == 0) {
-                spawnSpiders(world, player);
-            }
+            spawnZombies(world, player);
+            spawnSkeletons(world, player);
+            spawnCreepers(world, player);
+            spawnSpiders(world, player);
         }
     }
 
@@ -204,7 +204,9 @@ public class MobSpawnHandler {
         // Set the entity's target to the player
         Mob mob = (Mob) entity;
         mob.setTarget(target);
-        mob.setHealth(100);
+        // mob.setHealth(100);
+        mob.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 200));
+        mob.isOnFire();
 
         if (mob instanceof Skeleton) {
             // Equip the skeleton with a bow and arrows

@@ -22,12 +22,12 @@ public class BlockRestorer {
 
     public static void addBrokenBlock(BlockPos pos, BlockState state) {
         brokenBlocks.add(new BlockEntry(pos, state));
-        if (world != null) {        
-            BlockAnimationHandler.scheduleBlockBreak(world, pos, state);
+        if (world != null) {
+            // BlockAnimationHandler.animateBlockBreak(world, pos, state);
         }
     }
 
-     @SubscribeEvent
+    @SubscribeEvent
     public static void onLevelTick(TickEvent.LevelTickEvent event) {
         if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {
             ServerLevel serverWorld = (ServerLevel) event.level;
@@ -37,7 +37,7 @@ public class BlockRestorer {
             int timeDay = (int) time - (day * 24000);
             boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
 
-            if (!isNightTime && !brokenBlocks.isEmpty() && time % 20 * 1 == 0) {
+            if (!isNightTime && !brokenBlocks.isEmpty() && time % 20 * 1 / 4 == 0) {
                 BlockEntry item = brokenBlocks.get(index);
                 BlockState state = item.getState();
                 BlockPos pos = item.getPos();

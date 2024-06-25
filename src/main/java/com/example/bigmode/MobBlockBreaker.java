@@ -23,8 +23,7 @@ public class MobBlockBreaker {
     private static Mob currentMob;
     private static ServerLevel currentWorld;
     private static Player currentPlayer;
-
-    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private static int ticks = 0;
 
     public static void enableMobBlockBreaking(Mob mob, ServerLevel world, Player target) {
         currentMob = mob;
@@ -67,31 +66,26 @@ public class MobBlockBreaker {
         System.out.println("mob: X:" + mobX + "Y:" + mobY + "Z:" + mobZ);
         System.out.println("blockX: X:" + blockX + "Y:" + blockY + "Z:" + blockZ);
         animateBlockBreak(blockX, blockY, blockZ);
-        animateBlockBreak(blockX, blockY + 1, blockZ);
+        // animateBlockBreak(blockX, blockY + 1, blockZ);
     }
 
     private static void animateBlockBreak(int blockX, int blockY, int blockZ) {
+        System.out.println(ticks);
         BlockPos blockPos = new BlockPos(blockX, blockY, blockZ);
         BlockState state = currentWorld.getBlockState(blockPos);
-
         if (state.getBlock() != Blocks.AIR && state.getDestroySpeed(currentWorld, blockPos) >= 0) {
-            final int[] progress = { 0 };
-            final int maxProgress = 10; // Number of steps to simulate block breaking
-
-            scheduler.scheduleAtFixedRate(() -> {
-                if (progress[0] < maxProgress) {
-                    // Simulate block breaking progress (e.g., show breaking animation)
-                    currentWorld.levelEvent(2001, blockPos, Block.getId(state));
-                    progress[0]++;
-                } else {
-                    // Break the block when progress is complete
-                    currentWorld.destroyBlock(blockPos, true, currentMob);
-                    currentWorld.playSound(null, blockPos, SoundEvents.STONE_BREAK, currentMob.getSoundSource(), 1.0F,
-                            1.0F);
-                    BlockRestorer.addBrokenBlock(blockPos, state);
-                    scheduler.shutdown();
-                }
-            }, 0, 500, TimeUnit.MILLISECONDS); // Adjust the delay between steps (500ms here) as needed
+            if (ticks < 10) {
+                // Simulate block breaking progress (e.g., show breaking animation)
+                currentWorld.levelEvent(2001, blockPos, Block.getId(state));
+                ticks++;
+            } else {
+                // Break the block when progress is complete
+                currentWorld.destroyBlock(blockPos, true, currentMob);
+                currentWorld.playSound(null, blockPos, SoundEvents.STONE_BREAK, currentMob.getSoundSource(), 1.0F,
+                        1.0F);
+                BlockRestorer.addBrokenBlock(blockPos, state);
+                ticks = 0;
+            }
         }
     }
 
