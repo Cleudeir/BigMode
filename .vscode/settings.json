@@ -6,6 +6,7 @@
         "gson",
         "Heightmap",
         "MAINHAND",
+        "MODID",
         "OVERWORLD",
         "Respawn",
         "RESPAWNED"

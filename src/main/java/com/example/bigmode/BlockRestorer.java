@@ -6,11 +6,8 @@ import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 @Mod.EventBusSubscriber(modid = YourMod.MODID)
@@ -18,48 +15,49 @@ public class BlockRestorer {
 
     private static final List<BlockEntry> brokenBlocks = new ArrayList<>();
     private static int index = 0;
+    private static ServerLevel serverWorld;
 
-    public static void addBrokenBlock(BlockPos pos, BlockState state) {
+    public static void addBrokenBlock(BlockPos pos, BlockState state, ServerLevel currentWorld) {
         brokenBlocks.add(new BlockEntry(pos, state));
-
+        serverWorld = currentWorld;
     }
 
-    @SubscribeEvent
-    public static void onLevelTick(TickEvent.LevelTickEvent event) {
-        if (event.phase == TickEvent.Phase.END && !event.level.isClientSide()) {
-            ServerLevel serverWorld = (ServerLevel) event.level;
-
-            long time = serverWorld.getDayTime();
-            int day = (int) time / 24000;
-            int timeDay = (int) time - (day * 24000);
-            boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
-
-            if (time % 20 * 60 == 0 && brokenBlocks.size() > 0) {
-                for (int i = 0; i < brokenBlocks.size(); i++) {
-                    BlockEntry item = brokenBlocks.get(i);
-                    BlockPos pos = item.getPos();
-                    BlockAnimationHandler.animateBlock(serverWorld, pos);
-                }
-            }
-
-            if (!isNightTime && !brokenBlocks.isEmpty() && time % 20 * 1 / 4 == 0) {
-                BlockEntry item = brokenBlocks.get(index);
-                BlockState state = item.getState();
-                BlockPos pos = item.getPos();
-                // Verify if there's a mob or player at the position
-                List<Entity> entities = serverWorld.getEntities(null, new AABB(pos));
-                boolean positionOccupied = entities.stream().anyMatch(entity -> entity instanceof LivingEntity);
-
-                if (positionOccupied) {
-                    System.out.println("Position " + pos + " is still occupied, skipping restoration.");
-                    index++;
-                } else {
-                    System.out.println("Restoring block at position: " + pos + " to state: " + state);
-                    serverWorld.setBlockAndUpdate(pos, state);
-                    System.out.println("Entry removed from the list.");
-                    brokenBlocks.remove(index);
+    public static void restoreBlocks() {
+        if (serverWorld == null || brokenBlocks.size() == 0) {
+            return;
+        }
+        if (brokenBlocks.size() > 0) {
+            BlockEntry item = brokenBlocks.get(index);
+            BlockState state = item.getState();
+            BlockPos pos = item.getPos();
+            // verify if exists entity on position
+            boolean entityExists = serverWorld.getEntities(null, state.getShape(serverWorld, pos).bounds().move(pos))
+                    .size() > 0;
+            System.out.println("brokenBlocks: " + brokenBlocks);
+            if (state != null && state != Blocks.AIR.defaultBlockState() && serverWorld != null && !entityExists) {
+                serverWorld.setBlockAndUpdate(pos, state);
+                brokenBlocks.remove(index);
+                index = 0;
+            } else {
+                if (index + 1 == brokenBlocks.size()) {
                     index = 0;
+                } else {
+                    index++;
                 }
+
+            }
+        }
+    }
+
+    public static void animateBlockDestroyed() {
+        if (serverWorld == null || brokenBlocks.size() == 0) {
+            return;
+        }
+        if (brokenBlocks.size() > 0) {
+            for (int i = 0; i < brokenBlocks.size(); i++) {
+                BlockEntry item = brokenBlocks.get(i);
+                BlockPos pos = item.getPos();
+                BlockAnimationHandler.animateBlock(serverWorld, pos);
             }
         }
     }

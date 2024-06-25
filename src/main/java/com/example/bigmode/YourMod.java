@@ -13,14 +13,9 @@ public class YourMod {
     public YourMod() {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::setup);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::doClientStuff);
-
-        // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
-
-        // Register the MobSpawnHandler
         MinecraftForge.EVENT_BUS.register(new MobSpawnHandler());
-        MinecraftForge.EVENT_BUS.register(new ModCommands());      
-        MinecraftForge.EVENT_BUS.register(new InitialItems());
+        MinecraftForge.EVENT_BUS.register(new ModCommands());
     }
 
     private void setup(final FMLCommonSetupEvent event) {

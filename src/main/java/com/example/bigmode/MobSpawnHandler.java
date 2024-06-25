@@ -35,8 +35,11 @@ public class MobSpawnHandler {
     private static final int DAYS_INTERVAL = 7;
     private static final List<LivingEntity> currentWaveMobs = new ArrayList<>();
     private static final int maxMobs = 40;
-    private static final int maxMobPack = 30;
-    private static final int maxMobDiff = maxMobs - maxMobPack;
+    private static int ticks = 0;
+
+    public static void resetTicks() {
+        ticks = 0;
+    }
 
     @SubscribeEvent
     public static void onLiving(PlayerTickEvent event) {
@@ -49,40 +52,41 @@ public class MobSpawnHandler {
                 int timeDay = (int) time - (day * 24000);
                 boolean isNightTime = timeDay >= 13000 && timeDay <= 23000;
                 Player player = event.player;
+                int percentDay = (int) time % 24000;
+                int hours = ((int) percentDay / 1000 + 6) % 24;
+                int minutes = (int) ((percentDay % 1000) / 16.6667);
                 if (!isNightTime) {
                     currentWaveMobs.clear();
                 }
-                if (isNightTime && day % DAYS_INTERVAL == 0) {
-                    if (time % (20 * 0.5) == 0) {
-                        if (currentWaveMobs.size() > 0) {
-                            for (int i = 0; i < currentWaveMobs.size(); i++) {
-                                LivingEntity entity = currentWaveMobs.get(i);
-                                int id = entity.getId();
-                                Mob mob = (Mob) world.getEntity(id);
-                                if (mob != null) {
-                                    System.out.println("Mob ID: " + id);
-                                    System.out.println("Mob Type: " + mob.getType());
-                                    MobBlockBreaker.enableMobBlockBreaking(mob, serverWorld, player);
-                                    mob.setTarget(player);
-                                    mobTeleport(mob, serverWorld, player);
-                                }
+                if (time % (20 * 1 / 5) == 0 && !isNightTime) {
+                    BlockRestorer.restoreBlocks();
+                }
+                if (time % (20 * 3) == 0) {
+                    BlockRestorer.animateBlockDestroyed();
+                }
+                if (time % (20 * 1000) == 0) {
+                    System.out.println("Player: " + player.getName().getString());
+                    System.out.println("currentWaveMobs.size(): " + currentWaveMobs.size());
+                    System.out.printf("Current Minecraft time: Day %d, Time %02d:%02d%n", day, hours, minutes);
+                }
+                if (time % (20 * 1) == 0) {
+                    if (currentWaveMobs.size() > 0) {
+                        ticks++;
+                        for (int i = 0; i < currentWaveMobs.size(); i++) {
+                            LivingEntity entity = currentWaveMobs.get(i);
+                            int id = entity.getId();
+                            Mob mob = (Mob) world.getEntity(id);
+                            if (mob != null) {
+                                MobBlockBreaker.enableMobBlockBreaking(mob, serverWorld, player, ticks);
+                                mob.setTarget(player);
+                                mobTeleport(mob, serverWorld, player);
                             }
                         }
-
-                        if (currentWaveMobs.size() < maxMobs) {
-                            spawnNextWave(serverWorld);
-                        }
-
-                        System.out.println("Player: " + player.getName().getString());
-                        System.out.println("currentWaveMobs.size(): " + currentWaveMobs.size());
-                        int percentDay = (int) time % 24000;
-                        int hours = ((int) percentDay / 1000 + 6) % 24; // Adjust for Minecraft's day
-                        int minutes = (int) ((percentDay % 1000) / 16.6667); // Approximately convert
-                        System.out.printf("Current Minecraft time: Day %d, Time %02d:%02d%n", day, hours, minutes);
-
+                    }
+                    if (isNightTime && day % DAYS_INTERVAL == 0 && currentWaveMobs.size() < maxMobs) {
+                        spawnNextWave(serverWorld);
                     }
                 }
-
             }
         }
     }
@@ -104,7 +108,6 @@ public class MobSpawnHandler {
             Player player = (Player) entity;
             ServerLevel world = (ServerLevel) player.level();
             targetMobsToPlayer(player);
-            // Apply Damage Resistance effect for 5 seconds (100 ticks)
             player.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false));
             player.sendSystemMessage(
                     Component.translatable("You are invulnerable to damage for 5 seconds!"));

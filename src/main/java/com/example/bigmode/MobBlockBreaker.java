@@ -1,9 +1,6 @@
 package com.example.bigmode;
 
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -23,12 +20,13 @@ public class MobBlockBreaker {
     private static Mob currentMob;
     private static ServerLevel currentWorld;
     private static Player currentPlayer;
-    private static int ticks = 0;
+    private static int currentTicks;
 
-    public static void enableMobBlockBreaking(Mob mob, ServerLevel world, Player target) {
+    public static void enableMobBlockBreaking(Mob mob, ServerLevel world, Player target, int ticks) {
         currentMob = mob;
         currentWorld = world;
         currentPlayer = target;
+        currentTicks = ticks;
         scheduleBlockBreak();
     }
 
@@ -36,7 +34,6 @@ public class MobBlockBreaker {
         if (currentMob == null || currentWorld == null || currentPlayer == null) {
             return;
         }
-
         // position player
         int playerX = (int) currentPlayer.getX();
         int playerY = (int) currentPlayer.getY();
@@ -65,39 +62,36 @@ public class MobBlockBreaker {
         System.out.println("player: X:" + playerX + "Y:" + playerY + "Z:" + playerZ);
         System.out.println("mob: X:" + mobX + "Y:" + mobY + "Z:" + mobZ);
         System.out.println("blockX: X:" + blockX + "Y:" + blockY + "Z:" + blockZ);
-        animateBlockBreak(blockX, blockY, blockZ);
-        // animateBlockBreak(blockX, blockY + 1, blockZ);
+        blockBreak(blockX, blockY, blockZ);
     }
 
-    private static void animateBlockBreak(int blockX, int blockY, int blockZ) {
-        System.out.println(ticks);
+    private static void blockBreak(int blockX, int blockY, int blockZ) {
         BlockPos blockPos = new BlockPos(blockX, blockY, blockZ);
         BlockState state = currentWorld.getBlockState(blockPos);
         if (state.getBlock() != Blocks.AIR && state.getDestroySpeed(currentWorld, blockPos) >= 0) {
-            if (ticks < 10) {
-                // Simulate block breaking progress (e.g., show breaking animation)
+            if (currentTicks < 10) {
                 currentWorld.levelEvent(2001, blockPos, Block.getId(state));
-                ticks++;
             } else {
-                // Break the block when progress is complete
                 currentWorld.destroyBlock(blockPos, true, currentMob);
                 currentWorld.playSound(null, blockPos, SoundEvents.STONE_BREAK, currentMob.getSoundSource(), 1.0F,
                         1.0F);
-                BlockRestorer.addBrokenBlock(blockPos, state);
-                ticks = 0;
+                BlockRestorer.addBrokenBlock(blockPos, state, currentWorld);
+                MobSpawnHandler.resetTicks();
             }
         }
     }
 
     @SubscribeEvent
     public static void onExplosionStart(ExplosionEvent.Detonate event) {
+        if (currentMob == null || currentWorld == null || currentPlayer == null) {
+            return;
+        }
         if (event.getExplosion().getExploder() instanceof Creeper) {
-            ServerLevel world = (ServerLevel) event.getLevel();
             List<BlockPos> affectedBlocks = event.getAffectedBlocks();
             for (BlockPos pos : affectedBlocks) {
-                BlockState state = world.getBlockState(pos);
+                BlockState state = currentWorld.getBlockState(pos);
                 if (state.getBlock() != Blocks.AIR) {
-                    BlockRestorer.addBrokenBlock(pos, state);
+                    BlockRestorer.addBrokenBlock(pos, state, currentWorld);
                 }
             }
         }
